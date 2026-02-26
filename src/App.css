@@ -1,3 +1,4 @@
+/* ================= Body & Root ================= */
 body, html, #root {
   margin: 0;
   padding: 0;
@@ -8,14 +9,40 @@ body, html, #root {
   background-color: #f0f0f0;
 }
 
+/* ================= Desktop ================= */
 .desktop {
   position: relative;
   width: 100%;
   height: 100%;
   background-color: #1e1e1e;
   overflow: hidden;
+  display: flex;
+  flex-wrap: wrap;
+  padding: 10px;
 }
 
+/* ================= Desktop Icons ================= */
+.desktop-icon {
+  width: 80px;
+  text-align: center;
+  margin: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.icon-image {
+  font-size: 40px;
+  color: #ffffff;
+}
+
+.icon-title {
+  margin-top: 5px;
+  color: #ffffff;
+  font-size: 14px;
+  word-break: break-word;
+}
+
+/* ================= Taskbar ================= */
 .taskbar {
   position: absolute;
   bottom: 0;
@@ -41,11 +68,15 @@ body, html, #root {
   font-size: 16px;
 }
 
+/* ================= Windows ================= */
 .window {
   background-color: white;
   border-radius: 8px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
   transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  position: absolute;
 }
 
 .window-header {
@@ -64,8 +95,21 @@ body, html, #root {
   gap: 5px;
 }
 
+.window-controls button {
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
 .window-content {
   padding: 10px;
+  flex-grow: 1;
+  overflow: auto;
 }
 
 .window.minimized {
@@ -80,4 +124,20 @@ body, html, #root {
   margin: 0 !important;
   border-radius: 0 !important;
   cursor: default;
+}
+
+/* ================= File Explorer ================= */
+.folder-title {
+  cursor: pointer;
+  color: #0078d4;
+}
+
+.folder-contents {
+  padding-left: 20px;
+}
+
+.file {
+  margin-left: 20px;
+  color: #ffffff;
+  font-size: 14px;
 }
