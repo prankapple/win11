@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Rnd } from 'react-rnd';
 import './App.css';
 
+// ================= Window Component =================
 const Window = ({
   id,
   title,
@@ -64,11 +65,12 @@ const Window = ({
   );
 };
 
+// ================= Taskbar Component =================
 const Taskbar = ({ windows, onOpenWindow }) => {
   return (
     <div className="taskbar">
       <div className="taskbar-center">
-        {windows.map(window => (
+        {windows.filter(w => w.isOpen).map(window => (
           <button key={window.id} onClick={() => onOpenWindow(window.id)}>
             {window.title}
           </button>
@@ -78,10 +80,67 @@ const Taskbar = ({ windows, onOpenWindow }) => {
   );
 };
 
+// ================= Desktop Icon Component =================
+const DesktopIcon = ({ title, windowId, onOpen }) => (
+  <div className="desktop-icon" onDoubleClick={() => onOpen(windowId)}>
+    <div className="icon-image">🗂️</div>
+    <div className="icon-title">{title}</div>
+  </div>
+);
+
+// ================= File Explorer Component =================
+const FileExplorer = ({ node }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (node.type === 'file') {
+    return <div className="file">📄 {node.name}</div>;
+  }
+
+  return (
+    <div className="folder">
+      <div onClick={() => setIsOpen(!isOpen)} className="folder-title">
+        📁 {node.name}
+      </div>
+      {isOpen && (
+        <div className="folder-contents" style={{ paddingLeft: 20 }}>
+          {node.children.map((child, index) => (
+            <FileExplorer key={index} node={child} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ================= Main App Component =================
 const App = () => {
   const [windows, setWindows] = useState([
-    { id: 1, title: 'Window 1', content: 'Content of Window 1', isOpen: true, isMinimized: false, isFullscreen: false },
-    { id: 2, title: 'Window 2', content: 'Content of Window 2', isOpen: false, isMinimized: false, isFullscreen: false },
+    {
+      id: 1,
+      title: 'My Computer',
+      content: {
+        type: 'folder',
+        name: 'Root',
+        children: [
+          { type: 'file', name: 'file1.txt' },
+          { type: 'folder', name: 'Documents', children: [
+            { type: 'file', name: 'doc1.txt' },
+            { type: 'file', name: 'doc2.txt' }
+          ]},
+        ]
+      },
+      isOpen: true,
+      isMinimized: false,
+      isFullscreen: false
+    },
+    {
+      id: 2,
+      title: 'Notes',
+      content: 'This is a simple notes window.',
+      isOpen: false,
+      isMinimized: false,
+      isFullscreen: false
+    }
   ]);
 
   const openWindow = (id) => {
@@ -102,6 +161,17 @@ const App = () => {
 
   return (
     <div className="desktop">
+      {/* Desktop icons */}
+      {windows.map(window => (
+        <DesktopIcon
+          key={window.id}
+          title={window.title}
+          windowId={window.id}
+          onOpen={openWindow}
+        />
+      ))}
+
+      {/* Open windows */}
       {windows.filter(window => window.isOpen).map(window => (
         <Window
           key={window.id}
@@ -113,9 +183,11 @@ const App = () => {
           onMinimize={minimizeWindow}
           onToggleFullscreen={toggleFullscreenWindow}
         >
-          {window.content}
+          {typeof window.content === 'string' ? window.content : <FileExplorer node={window.content} />}
         </Window>
       ))}
+
+      {/* Taskbar */}
       <Taskbar windows={windows} onOpenWindow={openWindow} />
     </div>
   );
