@@ -198,3 +198,33 @@ textarea {
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+
+/* ================= File Buttons ================= */
+
+.file button,
+.folder button {
+  margin-left: 4px;
+  font-size: 11px;
+  padding: 2px 6px;
+}
+
+/* ================= File Editor ================= */
+
+textarea {
+  width: 100%;
+  height: 120px;
+  margin-top: 6px;
+  padding: 6px;
+  resize: vertical;
+  font-family: monospace;
+  font-size: 13px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+/* ================= Hover Effects ================= */
+
+.file:hover,
+.folder-title:hover {
+  opacity: 0.85;
+}
