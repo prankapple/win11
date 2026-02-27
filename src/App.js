@@ -33,10 +33,6 @@ const Window = ({
     onToggleFullscreen(id);
   };
 
-  if (!isMinimized && !isFullscreen) {
-    // keep current size
-  }
-
   return (
     <Rnd
       size={size}
@@ -55,7 +51,7 @@ const Window = ({
       <div>
         <div className="window-header">
           <span>{title}</span>
-          <div>
+          <div className="window-controls">
             <button onClick={() => onMinimize(id)}>
               {isMinimized ? "🔼" : "🔽"}
             </button>
@@ -65,11 +61,43 @@ const Window = ({
             <button onClick={() => onClose(id)}>X</button>
           </div>
         </div>
-        {!isMinimized && <div className="window-content">{children}</div>}
+        {!isMinimized && (
+          <div className="window-content">{children}</div>
+        )}
       </div>
     </Rnd>
   );
 };
+
+/* ================= TASKBAR ================= */
+
+const Taskbar = ({ windows, onOpenWindow }) => {
+  return (
+    <div className="taskbar">
+      <div className="taskbar-center">
+        {windows
+          .filter((w) => w.isOpen)
+          .map((w) => (
+            <button key={w.id} onClick={() => onOpenWindow(w.id)}>
+              {w.title}
+            </button>
+          ))}
+      </div>
+    </div>
+  );
+};
+
+/* ================= DESKTOP ICON ================= */
+
+const DesktopIcon = ({ title, windowId, onOpen }) => (
+  <div
+    className="desktop-icon"
+    onDoubleClick={() => onOpen(windowId)}
+  >
+    <div className="icon-image">🗂️</div>
+    <div className="icon-title">{title}</div>
+  </div>
+);
 
 /* ================= FILE EXPLORER ================= */
 
@@ -80,87 +108,14 @@ const FileExplorer = ({ node, updateNode }) => {
   const [editingContent, setEditingContent] = useState(false);
   const [contentValue, setContentValue] = useState(node.content || "");
 
-  const downloadFile = () => {
-    const blob = new Blob([node.content || ""], { type: "text/plain" });
-    saveAs(blob, node.name);
-  };
-
-  const deleteNode = () => updateNode("delete", node);
-
-  const renameNode = () => {
-    updateNode("rename", node, newName);
-    setEditing(false);
-  };
-
-  const saveContent = () => {
-    updateNode("editContent", node, contentValue);
-    setEditingContent(false);
-  };
-
-  const createFile = () =>
-    updateNode("createFile", node, {
-      type: "file",
-      name: "newFile.txt",
-      content: "",
-    });
-
-  const createFolder = () =>
-    updateNode("createFolder", node, {
-      type: "folder",
-      name: "New Folder",
-      children: [],
-    });
-
-  const zipFolder = async () => {
-    const zip = new JSZip();
-
-    const addToZip = (folder, path = "") => {
-      folder.children.forEach((child) => {
-        if (child.type === "file") {
-          zip.file(path + child.name, child.content || "");
-        } else {
-          addToZip(child, path + child.name + "/");
-        }
+  if (node.type === "file") {
+    const downloadFile = () => {
+      const blob = new Blob([node.content || ""], {
+        type: "text/plain",
       });
+      saveAs(blob, node.name);
     };
 
-    addToZip(node);
-    const content = await zip.generateAsync({ type: "blob" });
-    saveAs(content, node.name + ".zip");
-  };
-
-  const handleUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (file.name.endsWith(".zip")) {
-      JSZip.loadAsync(file).then((zip) => {
-        zip.forEach(async (relativePath, zipEntry) => {
-          if (!zipEntry.dir) {
-            const content = await zipEntry.async("string");
-            updateNode("createFile", node, {
-              type: "file",
-              name: relativePath,
-              content,
-            });
-          }
-        });
-      });
-    } else {
-      const reader = new FileReader();
-      reader.onload = () => {
-        updateNode("createFile", node, {
-          type: "file",
-          name: file.name,
-          content: reader.result,
-        });
-      };
-      reader.readAsText(file);
-    }
-  };
-
-  /* FILE */
-  if (node.type === "file") {
     return (
       <div className="file">
         📄{" "}
@@ -170,16 +125,29 @@ const FileExplorer = ({ node, updateNode }) => {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
             />
-            <button onClick={renameNode}>Save</button>
+            <button
+              onClick={() => {
+                updateNode("rename", node, newName);
+                setEditing(false);
+              }}
+            >
+              Save
+            </button>
           </>
         ) : (
           <>
-            <span onDoubleClick={() => setEditingContent(true)}>
+            <span
+              onDoubleClick={() => setEditingContent(true)}
+            >
               {node.name}
             </span>
             <button onClick={() => setEditing(true)}>✏</button>
             <button onClick={downloadFile}>⬇</button>
-            <button onClick={deleteNode}>🗑</button>
+            <button
+              onClick={() => updateNode("delete", node)}
+            >
+              🗑
+            </button>
           </>
         )}
 
@@ -187,32 +155,125 @@ const FileExplorer = ({ node, updateNode }) => {
           <div>
             <textarea
               value={contentValue}
-              onChange={(e) => setContentValue(e.target.value)}
+              onChange={(e) =>
+                setContentValue(e.target.value)
+              }
             />
-            <button onClick={saveContent}>Save</button>
+            <button
+              onClick={() => {
+                updateNode(
+                  "editContent",
+                  node,
+                  contentValue
+                );
+                setEditingContent(false);
+              }}
+            >
+              Save
+            </button>
           </div>
         )}
       </div>
     );
   }
 
-  /* FOLDER */
   return (
     <div className="folder">
-      <div>
+      <div className="folder-title">
         📁 {node.name}
         <button onClick={() => setExpanded(!expanded)}>
           {expanded ? "▼" : "▶"}
         </button>
-        <button onClick={createFile}>📄+</button>
-        <button onClick={createFolder}>📁+</button>
-        <button onClick={zipFolder}>🗜</button>
-        <button onClick={deleteNode}>🗑</button>
-        <input type="file" onChange={handleUpload} />
+        <button
+          onClick={() =>
+            updateNode("createFile", node, {
+              type: "file",
+              name: "newFile.txt",
+              content: "",
+            })
+          }
+        >
+          📄+
+        </button>
+        <button
+          onClick={() =>
+            updateNode("createFolder", node, {
+              type: "folder",
+              name: "New Folder",
+              children: [],
+            })
+          }
+        >
+          📁+
+        </button>
+        <button
+          onClick={async () => {
+            const zip = new JSZip();
+
+            const addToZip = (folder, path = "") => {
+              folder.children.forEach((child) => {
+                if (child.type === "file") {
+                  zip.file(
+                    path + child.name,
+                    child.content || ""
+                  );
+                } else {
+                  addToZip(
+                    child,
+                    path + child.name + "/"
+                  );
+                }
+              });
+            };
+
+            addToZip(node);
+            const blob =
+              await zip.generateAsync({ type: "blob" });
+            saveAs(blob, node.name + ".zip");
+          }}
+        >
+          🗜
+        </button>
+
+        <input
+          type="file"
+          onChange={(e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (file.name.endsWith(".zip")) {
+              JSZip.loadAsync(file).then((zip) => {
+                zip.forEach(
+                  async (relativePath, zipEntry) => {
+                    if (!zipEntry.dir) {
+                      const content =
+                        await zipEntry.async("string");
+                      updateNode("createFile", node, {
+                        type: "file",
+                        name: relativePath,
+                        content,
+                      });
+                    }
+                  }
+                );
+              });
+            } else {
+              const reader = new FileReader();
+              reader.onload = () => {
+                updateNode("createFile", node, {
+                  type: "file",
+                  name: file.name,
+                  content: reader.result,
+                });
+              };
+              reader.readAsText(file);
+            }
+          }}
+        />
       </div>
 
       {expanded && (
-        <div style={{ paddingLeft: 20 }}>
+        <div className="folder-contents">
           {node.children?.map((child, index) => (
             <FileExplorer
               key={index}
@@ -242,6 +303,14 @@ const App = () => {
       isMinimized: false,
       isFullscreen: false,
     },
+    {
+      id: 2,
+      title: "Notes",
+      content: "This is a simple notes window.",
+      isOpen: false,
+      isMinimized: false,
+      isFullscreen: false,
+    },
   ]);
 
   const updateNode = (action, targetNode, payload) => {
@@ -257,8 +326,6 @@ const App = () => {
             node.content = payload;
             return node;
           case "createFile":
-            node.children.push(payload);
-            return node;
           case "createFolder":
             node.children.push(payload);
             return node;
@@ -277,41 +344,66 @@ const App = () => {
     };
 
     setWindows((prev) =>
-      prev.map((w) => ({
-        ...w,
-        content: recursiveUpdate({ ...w.content }),
-      }))
+      prev.map((w) =>
+        typeof w.content === "string"
+          ? w
+          : {
+              ...w,
+              content: recursiveUpdate({
+                ...w.content,
+              }),
+            }
+      )
     );
   };
 
   const openWindow = (id) =>
     setWindows((prev) =>
       prev.map((w) =>
-        w.id === id ? { ...w, isOpen: true, isMinimized: false } : w
+        w.id === id
+          ? { ...w, isOpen: true, isMinimized: false }
+          : w
       )
     );
 
   const closeWindow = (id) =>
     setWindows((prev) =>
-      prev.map((w) => (w.id === id ? { ...w, isOpen: false } : w))
+      prev.map((w) =>
+        w.id === id ? { ...w, isOpen: false } : w
+      )
     );
 
   const minimizeWindow = (id) =>
     setWindows((prev) =>
       prev.map((w) =>
-        w.id === id ? { ...w, isMinimized: !w.isMinimized } : w
+        w.id === id
+          ? { ...w, isMinimized: !w.isMinimized }
+          : w
       )
     );
 
   const toggleFullscreenWindow = (id) =>
     setWindows((prev) =>
       prev.map((w) =>
-        w.id === id ? { ...w, isFullscreen: !w.isFullscreen } : w
+        w.id === id
+          ? { ...w, isFullscreen: !w.isFullscreen }
+          : w
       )
     );
 
   return (
     <div className="desktop">
+      {/* Desktop Icons */}
+      {windows.map((w) => (
+        <DesktopIcon
+          key={w.id}
+          title={w.title}
+          windowId={w.id}
+          onOpen={openWindow}
+        />
+      ))}
+
+      {/* Open Windows */}
       {windows
         .filter((w) => w.isOpen)
         .map((window) => (
@@ -323,14 +415,25 @@ const App = () => {
             isFullscreen={window.isFullscreen}
             onClose={closeWindow}
             onMinimize={minimizeWindow}
-            onToggleFullscreen={toggleFullscreenWindow}
+            onToggleFullscreen={
+              toggleFullscreenWindow
+            }
           >
-            <FileExplorer
-              node={window.content}
-              updateNode={updateNode}
-            />
+            {typeof window.content === "string" ? (
+              window.content
+            ) : (
+              <FileExplorer
+                node={window.content}
+                updateNode={updateNode}
+              />
+            )}
           </Window>
         ))}
+
+      <Taskbar
+        windows={windows}
+        onOpenWindow={openWindow}
+      />
     </div>
   );
 };
