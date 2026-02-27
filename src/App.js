@@ -71,21 +71,19 @@ const Window = ({
 
 /* ================= TASKBAR ================= */
 
-const Taskbar = ({ windows, onOpenWindow }) => {
-  return (
-    <div className="taskbar">
-      <div className="taskbar-center">
-        {windows
-          .filter((w) => w.isOpen)
-          .map((w) => (
-            <button key={w.id} onClick={() => onOpenWindow(w.id)}>
-              {w.title}
-            </button>
-          ))}
-      </div>
+const Taskbar = ({ windows, onOpenWindow }) => (
+  <div className="taskbar">
+    <div className="taskbar-center">
+      {windows
+        .filter((w) => w.isOpen)
+        .map((w) => (
+          <button key={w.id} onClick={() => onOpenWindow(w.id)}>
+            {w.title}
+          </button>
+        ))}
     </div>
-  );
-};
+  </div>
+);
 
 /* ================= DESKTOP ICON ================= */
 
@@ -101,25 +99,20 @@ const DesktopIcon = ({ title, windowId, onOpen }) => (
 
 /* ================= FILE EXPLORER ================= */
 
-const FileExplorer = ({ node, updateNode }) => {
+const FileExplorer = ({ node, updateNode, path = [] }) => {
   const [expanded, setExpanded] = useState(true);
-  const [editing, setEditing] = useState(false);
+  const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(node.name);
   const [editingContent, setEditingContent] = useState(false);
   const [contentValue, setContentValue] = useState(node.content || "");
 
-  if (node.type === "file") {
-    const downloadFile = () => {
-      const blob = new Blob([node.content || ""], {
-        type: "text/plain",
-      });
-      saveAs(blob, node.name);
-    };
+  /* ===== FILE ===== */
 
+  if (node.type === "file") {
     return (
       <div className="file">
         📄{" "}
-        {editing ? (
+        {editingName ? (
           <>
             <input
               value={newName}
@@ -127,8 +120,11 @@ const FileExplorer = ({ node, updateNode }) => {
             />
             <button
               onClick={() => {
-                updateNode("rename", node, newName);
-                setEditing(false);
+                updateNode(path, (file) => ({
+                  ...file,
+                  name: newName,
+                }));
+                setEditingName(false);
               }}
             >
               Save
@@ -136,15 +132,23 @@ const FileExplorer = ({ node, updateNode }) => {
           </>
         ) : (
           <>
-            <span
-              onDoubleClick={() => setEditingContent(true)}
-            >
+            <span onDoubleClick={() => setEditingContent(true)}>
               {node.name}
             </span>
-            <button onClick={() => setEditing(true)}>✏</button>
-            <button onClick={downloadFile}>⬇</button>
+            <button onClick={() => setEditingName(true)}>✏</button>
             <button
-              onClick={() => updateNode("delete", node)}
+              onClick={() => {
+                const blob = new Blob(
+                  [node.content || ""],
+                  { type: "text/plain" }
+                );
+                saveAs(blob, node.name);
+              }}
+            >
+              ⬇
+            </button>
+            <button
+              onClick={() => updateNode(path, () => null)}
             >
               🗑
             </button>
@@ -161,11 +165,10 @@ const FileExplorer = ({ node, updateNode }) => {
             />
             <button
               onClick={() => {
-                updateNode(
-                  "editContent",
-                  node,
-                  contentValue
-                );
+                updateNode(path, (file) => ({
+                  ...file,
+                  content: contentValue,
+                }));
                 setEditingContent(false);
               }}
             >
@@ -177,6 +180,8 @@ const FileExplorer = ({ node, updateNode }) => {
     );
   }
 
+  /* ===== FOLDER ===== */
+
   return (
     <div className="folder">
       <div className="folder-title">
@@ -184,49 +189,63 @@ const FileExplorer = ({ node, updateNode }) => {
         <button onClick={() => setExpanded(!expanded)}>
           {expanded ? "▼" : "▶"}
         </button>
+
         <button
           onClick={() =>
-            updateNode("createFile", node, {
-              type: "file",
-              name: "newFile.txt",
-              content: "",
-            })
+            updateNode(path, (folder) => ({
+              ...folder,
+              children: [
+                ...folder.children,
+                {
+                  type: "file",
+                  name: "newFile.txt",
+                  content: "",
+                },
+              ],
+            }))
           }
         >
           📄+
         </button>
+
         <button
           onClick={() =>
-            updateNode("createFolder", node, {
-              type: "folder",
-              name: "New Folder",
-              children: [],
-            })
+            updateNode(path, (folder) => ({
+              ...folder,
+              children: [
+                ...folder.children,
+                {
+                  type: "folder",
+                  name: "New Folder",
+                  children: [],
+                },
+              ],
+            }))
           }
         >
           📁+
         </button>
+
         <button
           onClick={async () => {
             const zip = new JSZip();
 
-            const addToZip = (folder, path = "") => {
+            const addToZip = (folder, zipFolder) => {
               folder.children.forEach((child) => {
                 if (child.type === "file") {
-                  zip.file(
-                    path + child.name,
+                  zipFolder.file(
+                    child.name,
                     child.content || ""
                   );
                 } else {
-                  addToZip(
-                    child,
-                    path + child.name + "/"
-                  );
+                  const newFolder =
+                    zipFolder.folder(child.name);
+                  addToZip(child, newFolder);
                 }
               });
             };
 
-            addToZip(node);
+            addToZip(node, zip);
             const blob =
               await zip.generateAsync({ type: "blob" });
             saveAs(blob, node.name + ".zip");
@@ -248,11 +267,17 @@ const FileExplorer = ({ node, updateNode }) => {
                     if (!zipEntry.dir) {
                       const content =
                         await zipEntry.async("string");
-                      updateNode("createFile", node, {
-                        type: "file",
-                        name: relativePath,
-                        content,
-                      });
+                      updateNode(path, (folder) => ({
+                        ...folder,
+                        children: [
+                          ...folder.children,
+                          {
+                            type: "file",
+                            name: relativePath,
+                            content,
+                          },
+                        ],
+                      }));
                     }
                   }
                 );
@@ -260,11 +285,17 @@ const FileExplorer = ({ node, updateNode }) => {
             } else {
               const reader = new FileReader();
               reader.onload = () => {
-                updateNode("createFile", node, {
-                  type: "file",
-                  name: file.name,
-                  content: reader.result,
-                });
+                updateNode(path, (folder) => ({
+                  ...folder,
+                  children: [
+                    ...folder.children,
+                    {
+                      type: "file",
+                      name: file.name,
+                      content: reader.result,
+                    },
+                  ],
+                }));
               };
               reader.readAsText(file);
             }
@@ -279,6 +310,7 @@ const FileExplorer = ({ node, updateNode }) => {
               key={index}
               node={child}
               updateNode={updateNode}
+              path={[...path, "children", index]}
             />
           ))}
         </div>
@@ -313,34 +345,20 @@ const App = () => {
     },
   ]);
 
-  const updateNode = (action, targetNode, payload) => {
-    const recursiveUpdate = (node) => {
-      if (node === targetNode) {
-        switch (action) {
-          case "delete":
-            return null;
-          case "rename":
-            node.name = payload;
-            return node;
-          case "editContent":
-            node.content = payload;
-            return node;
-          case "createFile":
-          case "createFolder":
-            node.children.push(payload);
-            return node;
-          default:
-            return node;
-        }
+  const updateNode = (path, updater) => {
+    const updateRecursive = (obj, currentPath = []) => {
+      if (currentPath.length === path.length) {
+        return updater(obj);
       }
 
-      if (node.children) {
-        node.children = node.children
-          .map(recursiveUpdate)
-          .filter(Boolean);
-      }
-
-      return node;
+      const key = path[currentPath.length];
+      return {
+        ...obj,
+        [key]: updateRecursive(
+          obj[key],
+          [...currentPath, key]
+        ),
+      };
     };
 
     setWindows((prev) =>
@@ -349,9 +367,7 @@ const App = () => {
           ? w
           : {
               ...w,
-              content: recursiveUpdate({
-                ...w.content,
-              }),
+              content: updateRecursive(w.content),
             }
       )
     );
@@ -393,7 +409,6 @@ const App = () => {
 
   return (
     <div className="desktop">
-      {/* Desktop Icons */}
       {windows.map((w) => (
         <DesktopIcon
           key={w.id}
@@ -403,7 +418,6 @@ const App = () => {
         />
       ))}
 
-      {/* Open Windows */}
       {windows
         .filter((w) => w.isOpen)
         .map((window) => (
